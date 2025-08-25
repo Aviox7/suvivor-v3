@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Vampire Survivors MVP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="hud" role="banner">
+    <div class="hud-left">
+      <div class="stat">
+        <span class="label">HP</span>
+        <div class="bar" aria-label="生命值">
+          <div id="hp-bar" class="bar-fill" style="width: 100%"></div>
+        </div>
+        <span id="hp-text" class="value">100/100</span>
+      </div>
+      <div class="stat">
+        <span class="label">EXP</span>
+        <div class="bar" aria-label="经验值">
+          <div id="exp-bar" class="bar-fill exp" style="width: 0%"></div>
+        </div>
+        <span id="level-text" class="value">Lv. 1</span>
+      </div>
+    </div>
+    <div class="hud-right">
+      <div class="pill" id="coins">💰 0</div>
+      <div class="pill" id="timer">00:00</div>
+      <div class="pill" id="kills">Kills 0</div>
+      <button id="pauseBtn" class="pill btn" aria-label="暂停/继续">暂停</button>
+      <button id="soundBtn" class="pill btn" aria-label="音效开关" title="音效开关">🔊</button>
+    </div>
+  </header>
+
+  <main class="main" role="main">
+    <canvas id="game" aria-label="游戏画布" role="img"></canvas>
+
+    <!-- 轻量提示 -->
+    <div class="hint" aria-live="polite">
+      🎮 全自动放置游戏！按1/2/3切换自动移动/拾取/升级；WASD手动移动；P暂停；📜日志；底部显示技能增益
+    </div>
+
+    <!-- 升级面板 -->
+    <div id="levelUpModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="levelUpTitle">
+      <div class="modal-card">
+        <h2 id="levelUpTitle">选择一个升级</h2>
+        <div id="upgradeList" class="upgrade-list"></div>
+      </div>
+    </div>
+
+    <!-- 关卡选择面板 -->
+    <div id="levelSelectModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="levelSelectTitle">
+      <div class="modal-card">
+        <h2 id="levelSelectTitle">🌟 选择关卡</h2>
+        
+        <!-- 游戏模式选择 -->
+        <div class="game-mode-selection">
+          <h3>🎮 游戏模式</h3>
+          <div class="mode-buttons">
+            <button class="mode-btn active" data-mode="auto">
+              <div class="mode-icon">🤖</div>
+              <div class="mode-title">智能自动模式</div>
+              <div class="mode-desc">AI智能操控，自动移动、拾取和升级</div>
+            </button>
+            <button class="mode-btn" data-mode="manual">
+              <div class="mode-icon">🎯</div>
+              <div class="mode-title">手动操作模式</div>
+              <div class="mode-desc">完全手动控制，享受纯粹操作乐趣</div>
+            </button>
+          </div>
+        </div>
+        
+        <div id="levelList" class="level-list">
+          <div class="level-item" data-level="1">
+            <div class="level-info">
+              <h3>🌲 第一关：量子森林</h3>
+              <p>时间限制：5分钟 | 目标等级：30级</p>
+              <p>难度：⭐</p>
+            </div>
+            <button class="btn primary level-btn">开始游戏</button>
+          </div>
+          <div class="level-item locked" data-level="2">
+            <div class="level-info">
+              <h3>🏜️ 第二关：星际沙漠</h3>
+              <p>时间限制：5分钟 | 目标等级：30级</p>
+              <p>难度：⭐⭐</p>
+            </div>
+            <button class="btn level-btn" disabled>未解锁</button>
+          </div>
+          <div class="level-item locked" data-level="3">
+            <div class="level-info">
+              <h3>🌊 第三关：深海迷宫</h3>
+              <p>时间限制：5分钟 | 目标等级：30级</p>
+              <p>难度：⭐⭐⭐</p>
+            </div>
+            <button class="btn level-btn" disabled>未解锁</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 结算面板 -->
+    <div id="gameOverModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+      <div class="modal-card">
+        <h2 id="gameOverTitle">游戏结束</h2>
+        <p id="resultText">存活时间 00:00 · 击败 0 敌人 · 等级 1</p>
+        <div class="row gap">
+          <button id="restartBtn" class="btn primary">重新开始</button>
+          <button id="levelSelectBtn" class="btn">选择关卡</button>
+          <button id="shareBtn" class="btn">分享战绩</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部增益栏 -->
+  <footer id="buffBar" class="buffbar" aria-label="本局增益" role="contentinfo"></footer>
+
+  <!-- 信息面板 -->
+  <div id="infoPanel" class="info-panel hidden" role="complementary">
+    <div class="info-panel-header">
+      <div class="info-panel-title">
+        📊 角色面板
+      </div>
+      <button id="closeInfoPanel" class="info-panel-close" aria-label="关闭信息面板">×</button>
+    </div>
+    
+    <!-- Tab导航栏 -->
+    <div class="tab-navigation">
+      <button class="tab-btn active" data-tab="character">⚔️ 角色</button>
+      <button class="tab-btn" data-tab="skills">⚡ 技能</button>
+      <button class="tab-btn" data-tab="equipment">🛡️ 装备</button>
+      <button class="tab-btn" data-tab="inventory">🎒 背包</button>
+      <button class="tab-btn" data-tab="log">📜 日志</button>
+    </div>
+    
+    <div class="info-panel-content">
+      <!-- 角色信息Tab -->
+      <div id="tab-character" class="tab-content active">
+        <div class="info-section">
+          <h3 class="info-section-title">⚔️ 角色属性</h3>
+          <div class="character-stats">
+            <div class="stat-row">
+              <span class="stat-label">血量</span>
+              <span id="charHp" class="stat-value">100/100</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">经验</span>
+              <span id="charExp" class="stat-value">0/20</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">攻击力</span>
+              <span id="charDamage" class="stat-value">25</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">防御力</span>
+              <span id="charDefense" class="stat-value">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">攻击速度</span>
+              <span id="charAttackSpeed" class="stat-value">2.2/s</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">移动速度</span>
+              <span id="charMoveSpeed" class="stat-value">140</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">暴击率</span>
+              <span id="charCritRate" class="stat-value">20%</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">暴击倍率</span>
+              <span id="charCritMulti" class="stat-value">220%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 技能信息Tab -->
+      <div id="tab-skills" class="tab-content">
+        <div class="info-section">
+          <h3 class="info-section-title">⚡ 技能信息</h3>
+          <div id="skillsList" class="skills-list">
+            <div class="no-skills">暂无技能</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 装备信息Tab -->
+      <div id="tab-equipment" class="tab-content">
+        <div class="info-section">
+          <h3 class="info-section-title">🛡️ 当前装备</h3>
+          <div class="equipment-grid" id="equipmentGrid">
+            <div class="equipment-slot" data-slot="weapon">
+              <div class="slot-icon">⚔️</div>
+              <div class="slot-name">武器</div>
+              <div class="slot-item" id="slot-weapon">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="helmet">
+              <div class="slot-icon">🛡️</div>
+              <div class="slot-name">头盔</div>
+              <div class="slot-item" id="slot-helmet">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="armor">
+              <div class="slot-icon">🦺</div>
+              <div class="slot-name">护甲</div>
+              <div class="slot-item" id="slot-armor">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="gloves">
+              <div class="slot-icon">🧤</div>
+              <div class="slot-name">手套</div>
+              <div class="slot-item" id="slot-gloves">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="pants">
+              <div class="slot-icon">👖</div>
+              <div class="slot-name">裤子</div>
+              <div class="slot-item" id="slot-pants">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="boots">
+              <div class="slot-icon">👢</div>
+              <div class="slot-name">鞋子</div>
+              <div class="slot-item" id="slot-boots">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="necklace">
+              <div class="slot-icon">📿</div>
+              <div class="slot-name">项链</div>
+              <div class="slot-item" id="slot-necklace">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="ring">
+              <div class="slot-icon">💍</div>
+              <div class="slot-name">戒指</div>
+              <div class="slot-item" id="slot-ring">无</div>
+            </div>
+            <div class="equipment-slot" data-slot="wings">
+              <div class="slot-icon">🪶</div>
+              <div class="slot-name">翅膀</div>
+              <div class="slot-item" id="slot-wings">无</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 背包Tab -->
+      <div id="tab-inventory" class="tab-content">
+        <div class="info-section">
+          <h3 class="info-section-title">🎒 装备背包</h3>
+          <div id="inventoryGrid" class="inventory-grid"></div>
+        </div>
+      </div>
+
+      <!-- 战斗日志Tab -->
+      <div id="tab-log" class="tab-content">
+        <div class="info-section">
+          <h3 class="info-section-title">📜 战斗日志</h3>
+          <div id="battleLogList" class="battle-log-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="infoPanelBtn" class="info-panel-btn" aria-label="打开角色面板">📊</button>
+  
+  <!-- 自动模式指示器 -->
+  <div class="auto-indicator">
+    <div id="autoMoveStatus" class="auto-status inactive">🚀 自动移动</div>
+    <div id="autoExpStatus" class="auto-status inactive">💎 自动拾取</div>
+    <div id="autoUpgradeStatus" class="auto-status inactive">⚡自动升级</div>
+  </div>
+
+  <!-- 加载简化版游戏系统（解决白屏问题） -->
+  <script src="js/main-simple.js"></script>
+  <script src="js/analytics.js"></script>
+</body>
+</html>
